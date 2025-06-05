@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>金價對比 - 即時黃金價格追蹤</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Microsoft JhengHei', Arial, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            color: #ffffff;
+            min-height: 100vh;
+        }
+
+        .header {
+            background: rgba(255, 215, 0, 0.1);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255, 215, 0, 0.3);
+            padding: 20px 0;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        .header h1 {
+            text-align: center;
+            font-size: 2.5rem;
+            background: linear-gradient(45deg, #ffd700, #ffed4e);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 10px;
+            text-shadow: 0 2px 20px rgba(255, 215, 0, 0.3);
+        }
+
+        .header p {
+            text-align: center;
+            color: #cccccc;
+            font-size: 1.1rem;
+        }
+
+        .main-content {
+            padding: 40px 0;
+        }
+
+        .price-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 25px;
+            margin-bottom: 40px;
+        }
+
+        .price-card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 215, 0, 0.2);
+            border-radius: 20px;
+            padding: 25px;
+            text-align: center;
+            transition: all 0.4s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .price-card::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(45deg, transparent, rgba(255, 215, 0, 0.1), transparent);
+            transform: rotate(-45deg);
+            transition: all 0.6s ease;
+            opacity: 0;
+        }
+
+        .price-card:hover::before {
+            opacity: 1;
+            animation: shimmer 2s infinite;
+        }
+
+        @keyframes shimmer {
+            0% { transform: translateX(-100%) translateY(-100%) rotate(-45deg); }
+            100% { transform: translateX(100%) translateY(100%) rotate(-45deg); }
+        }
+
+        .price-card:hover {
+            transform: translateY(-10px);
+            border-color: rgba(255, 215, 0, 0.5);
+            box-shadow: 0 20px 40px rgba(255, 215, 0, 0.2);
+        }
+
+        .card-icon {
+            font-size: 3rem;
+            margin-bottom: 15px;
+            display: block;
+        }
+
+        .card-title {
+            font-size: 1.3rem;
+            margin-bottom: 15px;
+            color: #ffd700;
+        }
+
+        .card-price {
+            font-size: 2.2rem;
+            font-weight: bold;
+            margin-bottom: 10px;
+            background: linear-gradient(45deg, #ffd700, #ffed4e);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .card-change {
+            font-size: 1rem;
+            padding: 5px 15px;
+            border-radius: 20px;
+            display: inline-block;
+        }
+
+        .positive {
+            background: rgba(34, 197, 94, 0.2);
+            color: #22c55e;
+            border: 1px solid rgba(34, 197, 94, 0.3);
+        }
+
+        .negative {
+            background: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+
+        .chart-section {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 215, 0, 0.2);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 40px;
+        }
+
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .chart-title {
+            font-size: 1.5rem;
+            color: #ffd700;
+        }
+
+        .time-buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .time-btn {
+            background: rgba(255, 215, 0, 0.1);
+            border: 1px solid rgba(255, 215, 0, 0.3);
+            color: #ffd700;
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.9rem;
+        }
+
+        .time-btn:hover, .time-btn.active {
+            background: rgba(255, 215, 0, 0.2);
+            border-color: rgba(255, 215, 0, 0.6);
+            transform: translateY(-2px);
+        }
+
+        .chart-container {
+            position: relative;
+            height: 400px;
+            margin-bottom: 20px;
+        }
+
+        .comparison-section {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 215, 0, 0.2);
+            border-radius: 20px;
+            padding: 30px;
+        }
+
+        .comparison-title {
+            font-size: 1.5rem;
+            color: #ffd700;
+            margin-bottom: 25px;
+            text-align: center;
+        }
+
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        .comparison-table th,
+        .comparison-table td {
+            padding: 15px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255, 215, 0, 0.2);
+        }
+
+        .comparison-table th {
+            background: rgba(255, 215, 0, 0.1);
+            color: #ffd700;
+            font-weight: 600;
+        }
+
+        .comparison-table tr:hover {
+            background: rgba(255, 215, 0, 0.05);
+        }
+
+        .refresh-btn {
+            background: linear-gradient(45deg, #ffd700, #ffed4e);
+            color: #1a1a2e;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            margin: 20px auto;
+            display: block;
+        }
+
+        .refresh-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 25px rgba(255, 215, 0, 0.3);
+        }
+
+        .last-update {
+            text-align: center;
+            color: #cccccc;
+            margin-top: 20px;
+            font-size: 0.9rem;
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .chart-header {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .time-buttons {
+                justify-content: center;
+            }
+            
+            .comparison-table {
+                font-size: 0.9rem;
+            }
+            
+            .comparison-table th,
+            .comparison-table td {
+                padding: 10px 8px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="container">
+            <h1>🏆 金價追蹤大師</h1>
+            <p>即時黃金價格 • 專業分析 • 投資決策</p>
+        </div>
+    </header>
+
+    <main class="main-content">
+        <div class="container">
+            <!-- 價格卡片區域 -->
+            <div class="price-cards">
+                <div class="price-card">
+                    <span class="card-icon">🥇</span>
+                    <h3 class="card-title">現貨黃金</h3>
+                    <div class="card-price" id="spot-gold">$2,051.80</div>
+                    <span class="card-change positive" id="spot-change">+$12.50 (+0.61%)</span>
+                </div>
+                <div class="price-card">
+                    <span class="card-icon">📈</span>
+                    <h3 class="card-title">黃金期貨</h3>
+                    <div class="card-price" id="gold-futures">$2,055.30</div>
+                    <span class="card-change positive" id="futures-change">+$8.20 (+0.40%)</span>
+                </div>
+                <div class="price-card">
+                    <span class="card-icon">💰</span>
+                    <h3 class="card-title">黃金ETF</h3>
+                    <div class="card-price" id="gold-etf">$185.45</div>
+                    <span class="card-change negative" id="etf-change">-$2.15 (-1.15%)</span>
+                </div>
+                <div class="price-card">
+                    <span class="card-icon">🏪</span>
+                    <h3 class="card-title">實體金條</h3>
+                    <div class="card-price" id="physical-gold">$2,085.60</div>
+                    <span class="card-change positive" id="physical-change">+$15.80 (+0.76%)</span>
+                </div>
+            </div>
+
+            <!-- 圖表區域 -->
+            <section class="chart-section">
+                <div class="chart-header">
+                    <h2 class="chart-title">📊 黃金價格走勢</h2>
+                    <div class="time-buttons">
+                        <button class="time-btn active" data-period="1D">1日</button>
+                        <button class="time-btn" data-period="1W">1週</button>
+                        <button class="time-btn" data-period="1M">1月</button>
+                        <button class="time-btn" data-period="3M">3月</button>
+                        <button class="time-btn" data-period="1Y">1年</button>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="priceChart"></canvas>
+                </div>
+            </section>
+
+            <!-- 比較表格區域 -->
+            <section class="comparison-section">
+                <h2 class="comparison-title">💎 黃金投資產品比較</h2>
+                <table class="comparison-table">
+                    <thead>
+                        <tr>
+                            <th>產品類型</th>
+                            <th>當前價格</th>
+                            <th>24小時變化</th>
+                            <th>流動性</th>
+                            <th>存儲成本</th>
+                            <th>適合投資者</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>現貨黃金</strong></td>
+                            <td>$2,051.80</td>
+                            <td class="positive">+0.61%</td>
+                            <td>極高</td>
+                            <td>無</td>
+                            <td>短期交易者</td>
+                        </tr>
+                        <tr>
+                            <td><strong>黃金期貨</strong></td>
+                            <td>$2,055.30</td>
+                            <td class="positive">+0.40%</td>
+                            <td>高</td>
+                            <td>低</td>
+                            <td>專業投資者</td>
+                        </tr>
+                        <tr>
+                            <td><strong>黃金ETF</strong></td>
+                            <td>$185.45</td>
+                            <td class="negative">-1.15%</td>
+                            <td>高</td>
+                            <td>管理費</td>
+                            <td>長期投資者</td>
+                        </tr>
+                        <tr>
+                            <td><strong>實體金條</strong></td>
+                            <td>$2,085.60</td>
+                            <td class="positive">+0.76%</td>
+                            <td>中等</td>
+                            <td>高</td>
+                            <td>保值投資者</td>
+                        </tr>
+                    </tbody>
+                </table>
+                
+                <button class="refresh-btn" onclick="refreshPrices()">🔄 刷新價格</button>
+                <div class="last-update">最後更新：<span id="last-update-time"></span></div>
+            </section>
+        </div>
+    </main>
+
+    <script>
+        // 模擬價格數據
+        let priceData = {
+            '1D': {
+                labels: ['00:00', '04:00', '08:00', '12:00', '16:00', '20:00', '24:00'],
+                data: [2045, 2048, 2052, 2049, 2051, 2053, 2052]
+            },
+            '1W': {
+                labels: ['週一', '週二', '週三', '週四', '週五', '週六', '週日'],
+                data: [2038, 2042, 2045, 2048, 2051, 2049, 2052]
+            },
+            '1M': {
+                labels: ['第1週', '第2週', '第3週', '第4週'],
+                data: [2025, 2035, 2045, 2052]
+            },
+            '3M': {
+                labels: ['1月', '2月', '3月'],
+                data: [1985, 2015, 2052]
+            },
+            '1Y': {
+                labels: ['1月', '3月', '5月', '7月', '9月', '11月'],
+                data: [1850, 1920, 1980, 2010, 2030, 2052]
+            }
+        };
+
+        let chart;
+
+        // 初始化圖表
+        function initChart() {
+            const ctx = document.getElementById('priceChart').getContext('2d');
+            
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: priceData['1D'].labels,
+                    datasets: [{
+                        label: '黃金價格 (USD/oz)',
+                        data: priceData['1D'].data,
+                        borderColor: '#ffd700',
+                        backgroundColor: 'rgba(255, 215, 0, 0.1)',
+                        borderWidth: 3,
+                        fill: true,
+                        tension: 0.4,
+                        pointBackgroundColor: '#ffd700',
+                        pointBorderColor: '#ffffff',
+                        pointBorderWidth: 2,
+                        pointRadius: 6,
+                        pointHoverRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: {
+                                color: '#ffffff',
+                                font: {
+                                    size: 14
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: {
+                                color: '#cccccc'
+                            },
+                            grid: {
+                                color: 'rgba(255, 215, 0, 0.1)'
+                            }
+                        },
+                        y: {
+                            ticks: {
+                                color: '#cccccc',
+                                callback: function(value) {
+                                    return '$' + value;
+                                }
+                            },
+                            grid: {
+                                color: 'rgba(255, 215, 0, 0.1)'
+                            }
+                        }
+                    },
+                    interaction: {
+                        intersect: false,
+                        mode: 'index'
+                    }
+                }
+            });
+        }
+
+        // 切換時間週期
+        function switchPeriod(period) {
+            const buttons = document.querySelectorAll('.time-btn');
+            buttons.forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+
+            chart.data.labels = priceData[period].labels;
+            chart.data.datasets[0].data = priceData[period].data;
+            chart.update('active');
+        }
+
+        // 刷新價格
+        function refreshPrices() {
+            const priceElements = [
+                { id: 'spot-gold', base: 2051.80 },
+                { id: 'gold-futures', base: 2055.30 },
+                { id: 'gold-etf', base: 185.45 },
+                { id: 'physical-gold', base: 2085.60 }
+            ];
+
+            priceElements.forEach(item => {
+                const variation = (Math.random() - 0.5) * 20;
+                const newPrice = item.base + variation;
+                document.getElementById(item.id).textContent = '$' + newPrice.toFixed(2);
+            });
+
+            // 更新變化百分比
+            const changeElements = ['spot-change', 'futures-change', 'etf-change', 'physical-change'];
+            changeElements.forEach(id => {
+                const change = (Math.random() - 0.5) * 40;
+                const percent = (Math.random() - 0.5) * 4;
+                const element = document.getElementById(id);
+                const sign = change >= 0 ? '+' : '';
+                element.textContent = `${sign}$${change.toFixed(2)} (${sign}${percent.toFixed(2)}%)`;
+                element.className = `card-change ${change >= 0 ? 'positive' : 'negative'}`;
+            });
+
+            updateLastUpdateTime();
+        }
+
+        // 更新最後更新時間
+        function updateLastUpdateTime() {
+            const now = new Date();
+            document.getElementById('last-update-time').textContent = 
+                now.toLocaleString('zh-TW');
+        }
+
+        // 事件監聽器
+        document.addEventListener('DOMContentLoaded', function() {
+            initChart();
+            updateLastUpdateTime();
+
+            // 時間按鈕點擊事件
+            document.querySelectorAll('.time-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    switchPeriod(this.dataset.period);
+                });
+            });
+
+            // 定期更新價格（每30秒）
+            setInterval(refreshPrices, 30000);
+        });
+
+        // 價格卡片動畫效果
+        document.querySelectorAll('.price-card').forEach(card => {
+            card.addEventListener('mouseenter', function() {
+                this.style.transform = 'translateY(-10px) scale(1.02)';
+            });
+            
+            card.addEventListener('mouseleave', function() {
+                this.style.transform = 'translateY(0) scale(1)';
+            });
+        });
+    </script>
+</body>
+</html>
